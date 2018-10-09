@@ -1,0 +1,58 @@
+## Basic Configuration
+
+baseurl = "" 
+builddrafts = false
+canonifyurls = false
+languageCode = "en-US"
+
+contentdir = "content"
+layoutdir = "layouts"
+publishdir = "public"
+
+author = "Jonathan Buck"
+title = "Jonathan Buck"
+
+theme = "goa"
+
+## Hugo Built-in Features
+# disqusShortname = "https-shenoybr-github-io-hugo-goa-demo" # Comment out to disable Disqus.
+googleAnalytics = "XYZ"
+enableRobotsTXT = true
+
+## Site Settings
+[params]
+author = "Jonathan Buck"
+intro = "Technologist. Engineer. Problem Solver."
+description = "Software engineer @AWS. <br/> Building the world's best deep learning platforms and services. <br/> Currently in the San Francisco Bay Area."
+authorimage = ""
+dateformat = "Jan 2, 2006"
+
+## Site Meta Settings
+[params.meta]
+description = "Simple minimalist theme"
+keywords = "minimalist,blog,goa,hugo,developer"
+
+## Social Accounts
+[params.social]
+github = "jjbuck"
+linkedin = "jonathan-j-buck"
+twitter = "j_j_buck"
+email = "jonathan.j.buck@gmail.com"
+
+## Extras
+[params.extra]
+copyright = "© 2018. Jonathan Buck. [Some Rights Reserved](http://creativecommons.org/licenses/by/3.0/)." 
+poweredby = false
+hightlightjs = true
+
+## Main Menu
+[[menu.main]]
+    name = "blog"
+    weight = 100
+    identifier = "blog"
+    url = "/blog/"
+[[menu.main]]
+    name = "about"
+    identifier = "about"
+    weight = 200
+    url = "/about/"
