@@ -10,4 +10,4 @@ title = "About Me"
 showpagemeta = false
 +++
 
-Educated at Georgia Tech, where I received a BS and MS in mechanical engineering. I currently live and work in the San Francisco Bay Area.
+Educated at Georgia Tech, where I received a BS and MS in mechanical engineering. I currently live and work in the San Francisco Bay Area..
