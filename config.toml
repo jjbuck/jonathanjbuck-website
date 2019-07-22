@@ -48,7 +48,7 @@ hightlightjs = true
 ## Main Menu
 [[menu.main]]
     name = "blog"
-    weight = 100
+    weight = 200
     identifier = "blog"
     url = "/blog/"
 [[menu.main]]
