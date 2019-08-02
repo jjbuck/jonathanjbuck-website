@@ -61,9 +61,3 @@ hightlightjs = true
     identifier = "cats-vs-dogs"
     weight = 200
     url = "/cats-vs-dogs/index.html"
-[[menu.main]]
-    name = "foo"
-    identifier = "foo"
-    weight = 200
-    url = "https://ismyinternetworking.com"
-
