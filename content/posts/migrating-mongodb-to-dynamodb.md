@@ -1,7 +1,7 @@
 ---
 title: "Migrating Mongodb to Dynamodb"
 date: 2019-12-15T14:35:47-08:00
-draft: true
+draft: false
 ---
 
 # Migrating from Mongo to Dynamo
@@ -9,6 +9,8 @@ draft: true
 I recently worked through the final project in a MOOC called The Results-Oriented Web Developer Course on [Udemy](https://www.udemy.com/course/result-oriented-web-developer-course/). The final project walks through the creation of a Node/Express web application, and deploys it to Herkou and uses MongoDB for the data store.
 
 I wanted to migrate this application to Elastic Beanstalk and DynamoDB so that I'd have more control over the deployment and hosting of the application. Also, I work at AWS, so I'm a little more familiar with AWS services in general. Having said that, I've never migrated an application from MongoDB to DynamoDB, so I wanted to keep a record of the process and the things I learned. Changing from Herkou to Elastic Beanstalk is pretty straightforward, so this blog focuses on the MongoDB-to-DynamoDB transition.
+
+If you want to jump to the finished product, it can be found at http://travelapp-dev.us-west-2.elasticbeanstalk.com.
 
 ## DynamoDB Local
 To facilitate local testing, I use ["DynamoDB Local"](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) - a downloadable version of DynamoDB that runs locally .
@@ -61,7 +63,55 @@ To create the production tables, I can re-use the previous requests and remove t
 Because this leads to a growing number of CLI inputs, I'd rather just define the whole collection of tables with CloudFormation.
 
 ## Creating Tables with CloudFormation.
-foo
+
+I ended up using a CloudFormation template to define all the necessary tables in one file, as shown below.
+
+    Resources:
+    TravelAppUsers:
+        Type: AWS::DynamoDB::Table
+        Properties: 
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+            - AttributeName: email
+            AttributeType: S
+        KeySchema: 
+            - AttributeName: email
+            KeyType: HASH
+        TableName: TravelAppUsers
+    TravelAppPosts:
+        Type: AWS::DynamoDB::Table
+        Properties: 
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+            - AttributeName: id
+            AttributeType: S
+        KeySchema: 
+            - AttributeName: id
+            KeyType: HASH
+        TableName: TravelAppPosts
+    TravelAppCallbackRequests:
+        Type: AWS::DynamoDB::Table
+        Properties: 
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+            - AttributeName: id
+            AttributeType: S
+        KeySchema: 
+            - AttributeName: id
+            KeyType: HASH
+        TableName: TravelAppCallbackRequests
+    TravelAppEmailRequests:
+        Type: AWS::DynamoDB::Table
+        Properties: 
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+            - AttributeName: id
+            AttributeType: S
+        KeySchema: 
+            - AttributeName: id
+            KeyType: HASH
+        TableName: TravelAppEmailRequests
+    
 
 To deploy, I type 
 
@@ -111,16 +161,75 @@ The definition for my DynamoDB users table is admittedly more verbose:
 
 
 ### Create User
-PutItem
+
+I'm using the DocumentClient interface to DynamoDB for all these operations. This is just a static initialization at the top of each of my route files.
+
+    var docClient = new AWS.DynamoDB.DocumentClient({region: 'us-west-2'});
+
+Once I parse the user's login information, I pass it into the DocumentClient's `put` method.
+
+    var user = {
+            'email': email,
+            'password': encryptedPassword
+        };
+        var params = {
+            TableName: table,
+            Item: user
+        };
+        console.log("Adding a new user...");
+        
+        docClient.put(params, function (err, data) {
+            if (err) {
+                console.error("Unable to add item. Error JSON:", JSON.stringify(err, null, 2));
+                resp.status(500);
+            } else {
+                console.log("Added item:", JSON.stringify(data, null, 2));
+                resp.sendStatus(200);
+            }
+        });
 
 ### Get User
-I can read from the table directly
+I can read from the table using the AWS CLI directly to verify that a user has been added.
 
     aws dynamodb get-item --table-name Users --key '{"email": {"S": "foo@test.com"}}'
 
+In practice, of course, this needs to be executed by the server once I user attempts to log in. As before, I parse the user's login details and make a call to the DocumentClient object, this time to the `get` method.
+
+    var params = {
+        TableName: table,
+        Key:{
+            "email": email
+        }
+    };
+    
+    docClient.get(params, async function(err, data) {
+        if (err) {
+            console.error("Unable to read item. Error JSON:", JSON.stringify(err, null, 2));
+        } else {
+            console.log("GetItem succeeded:", JSON.stringify(data, null, 2));
+            let user = data.Item;
+            console.log(user);
+            if (Object.keys(user).length > 0) {
+                let comparisonResult = await bcrypt.compare(password, user.password);
+                if (comparisonResult) {
+                    let token = auth.generateToken(user);
+                    resp.cookie('auth_token', token);
+                    resp.send({
+                        redirectUrl: '/admin'
+                    })
+                } else {
+                    resp.status(400);
+                }
+            } else {
+                resp.status(400);
+                resp.send('User Not Found');
+            }
+        }
+    });
+
 ## Posts Table
 
-I have a posts schema defined like so:
+Let's move on to the Posts table. I have a posts schema defined like so:
 
     let mongoose = require('mongoose');
     let Schema = mongoose.Schema;
@@ -180,12 +289,12 @@ What I want to do is propagate `err.message` to the client. Here's what create-p
     })
 
 ### Get Post
-posts.js originally fetched the post with.
+posts.js originally fetched the post with the following code.
 
     let post = await Post.findOne({id: id});
     resp.send(post);
     
-The Dynamo version is again a little more verbose:
+The Dynamo version is again a little more verbose.
 
     docClient.get(params, async function(err, data) {
         if (err) {
@@ -218,7 +327,7 @@ Ultimately I need to update the root route of /posts/. This is used on the home 
     })
 
 
-To get all the items from a DynamoDB table, we have to use the `scan` operation [https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/DynamoDB/DocumentClient.html#scan-property]. The update for DynamoDB looks like this:
+To get all the items from a DynamoDB table, we have to use the [`scan` operation] (https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/DynamoDB/DocumentClient.html#scan-property). The update for DynamoDB looks like this:
 
     router.get('/', async (req, resp) => {
         var params = {
@@ -239,7 +348,7 @@ To get all the items from a DynamoDB table, we have to use the `scan` operation 
 
 ### Delete Post
 
-Now that we've got create and get updated, also need to update the delete route [https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/DynamoDB/DocumentClient.html#delete-property]. 
+Now that we've got `create` and `get` updated, we also need to update the delete route.
 
     router.delete('/:id', authMiddleware, async (req, resp) => {
     let id = req.params.id;
@@ -319,15 +428,15 @@ The change here is similar to the change we made in the POST method for the /pos
 
 ## Emails Table
 
-The last table we have to update is the table that stores email addresses of customers who wish to be contacted with more information. This is again very similar to the approach required to update the Posts table.
-
+The last table we have to update is the table that stores email addresses of customers who wish to be contacted with more information. This is again very similar to the approach required to update the Posts table, so I've left it out for brevity.
 
 # Other Caveats
+I encountered a few hurdles in the course of this migration effort, which I've documented below for posterity.
 
 ## Issues with bcrypt
 
 I had to add a .npmrc file with the following:
-`unsafe-perm=true` to prevent issues with bcrypt
+`unsafe-perm=true` to prevent issues with bcrypt. When I first tried to deploy to Elastic Beanstalk, I got an error with the following stack trace.
 
 npm ERR! errno -2
 npm ERR! enoent ENOENT: no such file or directory, open '/var/app/current/package.json'
@@ -357,37 +466,49 @@ Error: /var/app/current/node_modules/bcrypt/lib/binding/bcrypt_lib.node: invalid
 internal/modules/cjs/loader.js:807
   return process.dlopen(module, path.toNamespacedPath(filename));
 
-
-
-
 ## Port
-Apparently nginx's default port is 8081. I couldn't figure out how to change this in elastic beanstalk, so I had to 
-change my app to use that port in the app.js file.
-`const port = process.env.PORT || 3000`
+Apparently nginx's default port is 8081. I couldn't figure out how to change this in elastic beanstalk, so I had to change my app to use that port in the app.js file. This is probably not news to anyone previously familiar with Elastic Beanstalk, but for a new user it tripped me up.
 
-This also necessitates changes throughout the app. Rather than define the full route http://localhost:3000/<resource>, we delete the prefix and use a relative route.
+    const port = process.env.PORT || 3000
 
+This also necessitates changes throughout the app. Rather than define the full route http://localhost:3000/<resource>, we delete the prefix and use relative routes throughout.
 
-## Note for Modern Mac OSX
+## Note for OSX Catalina
 
-For Modern macos/OSX, you need to find your ~/Library/Python/$version/bin directory and add it to your $PATH. This will help you locate the one where aws got installed.
+I updated to OSX Catalina in the course of this project, and I consequently had to update my PATH. Find your ~/Library/Python/$version/bin directory and add it to your $PATH. This will help you locate the one where aws got installed.
 
-$ ls -d ~/Library/Python/*/bin/aws
-/Users/bbronosky/Library/Python/3.6/bin/aws
-So based on that I added this line to my .bashrc
+    $ ls -d ~/Library/Python/*/bin/aws
+    /Users/jbuck/Library/Python/3.7/bin/aws
 
-export PATH=$HOME/Library/Python/3.6/bin:$PATH
+So based on that I added this line to my .bashrc.
+
+    export PATH=$HOME/Library/Python/3.7/bin:$PATH
 
 ## Body is disturbed or locked
 
-I ran into this error a lot. It seems to be thrown when in the context of parsing the response from fetch. In particular, when I would attempt to call then(async (response) => {
-        let msg = await response.text()
+I ran into this error a lot. This is probably not anything an experienced Javascript developer would struggle with, it was new to me. It seems to be thrown when in the context of parsing the response from fetch. In particular, when I would attempt to call 
 
-response.text() multiple times. The solution is to call .text() once and assign it to a variable (in this case `msg`), and then reference the variable going forward.
+    then(async (response) => {
+        let msg = await response.text()
+        ...
+    }
+
+response.text() multiple times. The solution is to call .text() **once** and assign it to a variable (in this case `msg`), and then reference the variable going forward.
 
 ## Deploying to Elastic Beanstalk
 
 Rather than deploy to Heroku, I wanted to deploy to Elastic Beanstalk. Since I went about the environment creation and deployment in a sort of ad hoc way, the role autogenerated by the Elastic Beanstalk CLI doesn't have permissions to invoke any DynamoDB resources. Since this was just a toy project, I just manually edited this role.
+
+Deploying with the Elastic Beanstalk CLI is pretty straightforward.
+    eb init
+    eb create
+    eb deploy
+
+
+One additional caveat here is that if your project directory is also a local git repo, the Elastic Beanstalk CLI will attempt to deploy the latest *committed* version, which may not be the current state of all your project files!
+
+# Conclusion
+Whew! It's finally done. If you made it this far, thanks for reading. The finished product is http://travelapp-dev.us-west-2.elasticbeanstalk.com.
 
 
 # Useful Resource
