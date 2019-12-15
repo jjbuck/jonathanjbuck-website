@@ -16,8 +16,8 @@ a:visited,
 a:link
 {
     text-decoration: none;
-
-    color: #526d7a;
+    font-weight: bold;
+    color: #343deb;
 }
 body
 {

@@ -50,7 +50,7 @@ hightlightjs = true
     name = "blog"
     weight = 200
     identifier = "blog"
-    url = "/blog/"
+    url = "/posts/"
 [[menu.main]]
     name = "about"
     identifier = "about"
