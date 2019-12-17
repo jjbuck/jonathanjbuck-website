@@ -1,6 +1,6 @@
 ## Basic Configuration
 
-baseurl = "" 
+baseurl = "/" 
 builddrafts = false
 canonifyurls = false
 languageCode = "en-US"
@@ -16,7 +16,7 @@ theme = "goa"
 
 ## Hugo Built-in Features
 # disqusShortname = "https-shenoybr-github-io-hugo-goa-demo" # Comment out to disable Disqus.
-googleAnalytics = "XYZ"
+googleAnalytics = "UA-154714198-1"
 enableRobotsTXT = true
 
 ## Site Settings
@@ -41,7 +41,7 @@ email = "jonathan.j.buck@gmail.com"
 
 ## Extras
 [params.extra]
-copyright = "© 2018. Jonathan Buck. [Some Rights Reserved](http://creativecommons.org/licenses/by/3.0/)." 
+copyright = "© 2019. Jonathan Buck. [Some Rights Reserved](http://creativecommons.org/licenses/by/3.0/)." 
 poweredby = false
 hightlightjs = true
 
